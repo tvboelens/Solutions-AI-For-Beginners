@@ -1,0 +1,15 @@
+data_directory: data/
+model_output_directory: output/models/
+image_output_directory: output/images
+
+#HYPERPARAMETERS
+bs_train: 4
+bs_test: 1
+bs_val: 4
+no_of_epochs: 3
+trainable_backbone_layers: 3
+lr: 0.001 
+momentum: 0.9
+
+#SETTINGS
+report_freq: 1
