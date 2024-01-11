@@ -1,0 +1,4 @@
+ngrams: 1
+min_freq: 1 
+vocab_size: 5000 
+lines_cnt: 500
