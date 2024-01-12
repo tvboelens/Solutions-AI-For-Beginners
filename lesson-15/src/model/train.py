@@ -45,8 +45,8 @@ def to_skip_gram(sent, window_size=2):
     return res
 
 
-def encode(x, vocabulary, tokenizer=get_tokenizer('basic_english')):
-    return [vocabulary[s] for s in tokenizer(x)]
+def encode(x, vocabulary, tokenizer=tokenize.word_tokenize()):
+    return [vocabulary[s.lower()] for s in tokenizer(x)]
 
 
 
@@ -54,6 +54,8 @@ def main(config):
     text = open('data/shakespeare.txt', 'rb').read().decode(encoding='utf-8').replace('\n',' ')
     vocab = build_vocab(text)
     text = tokenize.sent_tokenize(text)
+    #TODO: Split text into train and test part
+    #Then make torch dataset out of it
 
 
 
