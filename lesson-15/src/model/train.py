@@ -1,12 +1,14 @@
+from statistics import mean
 import ssl
 import os
 import collections
 import random
 import torch
+from torch import nn, optim
 from torch.utils.data import random_split, DataLoader, Dataset,IterableDataset
 from tqdm import tqdm
 import nltk
-from torchtext.data.utils import get_tokenizer
+#from torchtext.data.utils import get_tokenizer
 from torchtext import vocab as V
 import yaml
 import ssl
@@ -46,7 +48,7 @@ class EmbeddingDataset(Dataset):
         super().__init__()
         self.data = []
         for i in tqdm(range(len(X)), desc="Building dataset..."):
-            self.data.append((Y[i], X[i]))
+            self.data.append((X[i], Y[i]))
         random.shuffle(self.data)
 
     def __getitem__(self,idx):
@@ -69,7 +71,6 @@ def build_vocab(text, min_freq=1, vocab_size=5000):
     counter = collections.Counter(cleaned_tokens)
     vocab = V.vocab(collections.Counter(dict(counter.most_common(vocab_size))), min_freq=min_freq, specials=["<unk>"])
     vocab.set_default_index(vocab['<unk>'])
-    print('Vocab complete')
     return vocab
 
 
@@ -98,24 +99,118 @@ def get_dataset(text, ds_len, vocab, window_size):
 
     X = torch.tensor(X)
     Y = torch.tensor(Y)
-    ds = SimpleIterableDataset(X,Y)
+    ds = EmbeddingDataset(X,Y)
     return ds
+
+
+def train_epoch(epoch, model, dataloader, optimizer, report_freq, device, loss_fn):
+    epoch_loss = []
+    running_loss = 0.0
+    i=0
+    starttime = time.time()
+    with tqdm(dataloader, unit='batch') as tepoch:
+        tepoch.set_description(f"Training for epoch {epoch+1}...")
+        for features, targets in tepoch:
+            features.to(device)
+            targets.to(device)
+            optimizer.zero_grad(set_to_none=True)
+            pred = model(features)
+            batch_loss = loss_fn(pred, targets)
+            batch_loss.backward()
+            optimizer.step()
+            epoch_loss.append(batch_loss.item())
+            running_loss += batch_loss.item()
+            if i == report_freq:
+                tepoch.set_postfix(loss=running_loss/report_freq)
+                time.sleep(0.1)
+                """ print(f"Batch {j+1} finished, "
+                    f"time = {int((time.time()-starttime)/60)} minutes {round((time.time()-starttime)%60,2)} seconds, "
+                    f"loss: {running_loss/report_freq}")
+                starttime = time.time() """
+                running_loss = 0.0
+                i=0
+            else:
+                i+=1
+    return epoch_loss
+
+
+def train_model(model, train_loader, test_loader, optimizer, no_of_epochs, report_freq,
+                device='cpu', loss_fn=nn.CrossEntropyLoss()):
+    train_loss = []
+    test_loss = []
+    for epoch in range(no_of_epochs):
+        #epoch_starttime = time.time()
+        #print(f"START TRAINING FOR EPOCH {epoch + 1}:")
+        model.train(True)
+        epoch_loss = train_epoch(
+            epoch, model, train_loader, optimizer, report_freq, device, loss_fn)
+        train_loss += epoch_loss
+
+        running_tloss = 0.0
+        i=0
+        model.eval()
+        """ print(f"Training for epoch {epoch+1} done, time = "
+              f"{int((time.time()-epoch_starttime)/60)} minutes {round((time.time()-epoch_starttime)%60,2)} seconds") """
+        with torch.no_grad():
+            tbatch_starttime = time.time()
+            with tqdm(test_loader, unit='batch') as tepoch:
+                tepoch.set_description(f"Epoch {epoch+1}, validating model...")
+                for tfeatures, ttargets in tepoch:
+                    tfeatures.to(device)
+                    ttargets.to(device)
+                    pred = model(tfeatures)
+                    tloss = loss_fn(pred, ttargets)
+                    test_loss.append(tloss.item())
+                    running_tloss += tloss.item()
+                    tepoch.set_postfix(loss=running_tloss/(i+1))
+                    time.sleep(0.1)
+                    i+=1
+
+                # print(f"Completed validation for batch {i+1}, time = "
+                #      f"{int((time.time()-vbatch_starttime)/60)} minutes {round((time.time()-vbatch_starttime)%60,2)}"
+                #      f"seconds")
+
+        test_loss.append(running_tloss/(i+1))
+        train_loss += epoch_loss
+        """ print(f"Validation for epoch {epoch+1} done, time = "
+              f"{int((time.time()-epoch_starttime)/60)} minutes {round((time.time()-epoch_starttime)%60,2)} seconds, "
+              f"LOSS train {epoch_loss[-1]}, val: {test_loss[-1]}") """
+
+    return train_loss, test_loss
+
+
+
 
 
 
 
 def main(config):
+    #Build dataset and dataloaders
     text = open('data/shakespeare.txt', 'rb').read().decode(encoding='utf-8').replace('\n',' ')
     vocab = build_vocab(text)
     text = tokenize.sent_tokenize(text)
     ds = get_dataset(text, ds_len=config["ds_len"],vocab=vocab, window_size=config["window_size"])
     starttime = time.time()
-    print(f"Splitting dataset and creating dataloaders")
+    print(f"Splitting dataset and creating dataloaders...")
     train_set, test_set = random_split(
         ds, [config["ds_split"], 1-config["ds_split"]])
     train_loader = DataLoader(train_set, batch_size=config["bs"])
     test_loader = DataLoader(test_set, batch_size=config["bs"])
-    print(f"Complete, time={round(time.time()-starttime,2)} seconds")
+    
+    #Define model, optimizers and loss function
+    vocab_size = len(vocab)
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    embedder = torch.nn.Embedding(num_embeddings=vocab_size, embedding_dim=config["embedding_dim"])
+    model = torch.nn.Sequential(embedder,
+    torch.nn.Linear(in_features=config["embedding_dim"], out_features=vocab_size))
+    model.to(device)
+    optimizer = optim.SGD(params=model.parameters(), lr=config["lr"])
+    loss_fn = nn.CrossEntropyLoss()
+
+    #Start training
+    train_loss, test_loss = train_model(
+        model, train_loader, test_loader, optimizer, config["no_of_epochs"],
+        config["report_freq"], device, loss_fn)
 
     
 
