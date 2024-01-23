@@ -2,3 +2,7 @@ ngrams: 1
 min_freq: 1 
 vocab_size: 5000 
 lines_cnt: 500
+window_size: 10
+ds_len: 10000
+bs: 256
+ds_split: 0.8
