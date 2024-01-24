@@ -179,6 +179,17 @@ def train_model(model, train_loader, test_loader, optimizer, no_of_epochs, repor
     return train_loss, test_loss
 
 
+def save_model(model, savetime):
+    model_fn = 'word2vec_skip_gram_model_'+savetime+'.pth'
+    if not os.path.exists('output/models/'):
+        if not os.path.exists('output/'):
+            os.makedir('output')
+        os.makedir('output/models')
+
+    model_fp = 'output/models/'+model_fn
+    torch.save(model, model_fp)
+
+
 
 
 
@@ -211,6 +222,12 @@ def main(config):
     train_loss, test_loss = train_model(
         model, train_loader, test_loader, optimizer, config["no_of_epochs"],
         config["report_freq"], device, loss_fn)
+    
+    #Save model
+    savetime = time.strftime(
+        '%Y-%m-%d-%H%%%M', time.localtime()).replace('-', '_')
+    print(f"Training completed, saving model...")
+    save_model(model, savetime)
 
     
 
