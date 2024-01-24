@@ -1,0 +1,3 @@
+# Hollywood Head Detection
+
+Code was developed in Python 3.10.11, dependencies can be found in `requirements.txt`. To load dataset either run `src/data/make_dataset.py` or download data manually from [its creators' homepage](https://www.di.ens.fr/willow/research/headdetection) and save it as `data/HollywoodHeads.zip` and then run `src/data/make_dataset.py`. To train model run `src/models/train.py`. Use `src/config/config.yaml` to set/adjust hyperparameters.
