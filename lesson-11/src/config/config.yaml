@@ -1,6 +1,7 @@
 data_directory: data/
 model_output_directory: output/models/
-image_output_directory: output/images
+image_output_directory: output/images/
+plot_output_directory: output/plots/
 
 #HYPERPARAMETERS
 bs_train: 4
@@ -12,4 +13,4 @@ lr: 0.001
 momentum: 0.9
 
 #SETTINGS
-report_freq: 1
+save_freq: 100
