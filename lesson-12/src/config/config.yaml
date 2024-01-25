@@ -1,0 +1,15 @@
+data_dir: segmentation_full_body_mads_dataset_1192_img/
+model_output_dir: output/models/
+image_output_dir: output/images/
+plot_output_dir: output/plots/
+
+#Hyperparameters
+train_size: 0.7
+val_size: 0.2
+test_size: 0.1
+bs: 32
+lr: 0.001
+weight_decay: 0.000001
+no_of_epochs: 30
+momentum: None
+report_freq: 1
