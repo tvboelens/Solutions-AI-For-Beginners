@@ -90,7 +90,7 @@ def save_model(model, savetime):
     torch.save(model, model_fp)
 
 #TODO: Adjust output folders + put savetime in
-def draw_pred_bounding_boxes(img, model, img_name):
+def draw_pred_bounding_boxes(img, model, output_folder, img_name):
     model.eval()
 
     # img = tv_tensors.Image(img)
@@ -100,11 +100,10 @@ def draw_pred_bounding_boxes(img, model, img_name):
     img = draw_bounding_boxes(img, boxes)
     # img = torchvision.transforms.ToPILImage()(img)
     fn = img_name+'_pred.jpg'
-    fp = os.path.join('data/output', fn)
-    if not os.path.exists('data/output'):
-        os.mkdir('data/output')
+    fp = os.path.join(output_folder, fn)
+    if not os.path.exists(output_folder):
+        os.mkdir(output_folder)
     save_image(img, fp)
-    return None
 
 
 def draw_annot_bounding_boxes(img_name):
