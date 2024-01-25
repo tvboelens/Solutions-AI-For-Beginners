@@ -3,6 +3,7 @@ import os
 import time
 import yaml
 
+from matplotlib import pyplot as plt
 import torch
 from torch import optim
 from torch.utils.data import DataLoader
@@ -131,6 +132,22 @@ def main(config):
         '%Y-%m-%d-%H%%%M', time.localtime()).replace('-', '_')
     print(f"Training completed, saving model")
     U.save_model(model, savetime)
+
+
+
+    fig, (ax1, ax2) = plt.subplots(2, 1)
+
+    ax1.plot(train_loss)
+    ax1.set_ylabel("Loss")
+    ax1.set_title("Train Loss")
+
+    ax2.plot(val_loss)
+    ax2.set_ylabel("Loss")
+    ax2.set_title("Validation Loss")
+    if not os.path.exists('output/plots/'):
+        os.mkdir('output/plots')
+    fname = 'output/plots/train_val_loss_'+savetime+'.png'
+    plt.savefig(fname)
 
 
     
