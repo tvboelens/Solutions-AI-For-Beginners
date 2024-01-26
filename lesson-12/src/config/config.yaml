@@ -8,6 +8,7 @@ train_size: 0.7
 val_size: 0.2
 test_size: 0.1
 bs: 32
+bs_test: 1
 lr: 0.001
 weight_decay: 0.000001
 no_of_epochs: 30
