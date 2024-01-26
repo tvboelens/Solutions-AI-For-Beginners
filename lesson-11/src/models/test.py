@@ -42,7 +42,7 @@ def test_model(model, test_loader, output_folder, save_freq=100, device='cpu'):
 
 def main(args, config):
     #Load model and move to gpu if available
-    model_fp = config["model_output_directory"] + args.modelname
+    model_fp = config["model_output_dir"] + args.modelname
     model = torch.load(model_fp)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     model.to(device)
@@ -54,7 +54,7 @@ def main(args, config):
 
     #Test model
     test_loss = test_model(
-        model, test_loader, config["plot_output_directory"], config["save_freq"], device)
+        model, test_loader, config["plot_output_dir"], config["save_freq"], device)
     print(f"Average loss on test set is {test_loss}")
 
 

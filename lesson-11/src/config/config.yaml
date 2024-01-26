@@ -1,7 +1,7 @@
-data_directory: data/
-model_output_directory: output/models/
-image_output_directory: output/images/
-plot_output_directory: output/plots/
+data_dir: data/
+model_output_dir: output/models/
+image_output_dir: output/images/
+plot_output_dir: output/plots/
 
 #HYPERPARAMETERS
 bs_train: 4
