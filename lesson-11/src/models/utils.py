@@ -81,12 +81,12 @@ class HollywoodHeadDataset(Dataset):
             img, target = self.transforms(img, target)
         return img, target, img_filename
 
-def save_model(model, savetime):
+def save_model(output_dir, model, savetime):
     model_fn = 'HollywoodHeadDetection_model_'+savetime+'.pth'
-    if not os.path.exists('output/models'):
-        os.makedir('output/models')
+    if not os.path.exists(output_dir):
+        os.makedir(output_dir)
 
-    model_fp = 'output/models/'+model_fn
+    model_fp = os.path.join(output_dir, model_fn)
     torch.save(model, model_fp)
 
 #TODO: Adjust output folders + put savetime in

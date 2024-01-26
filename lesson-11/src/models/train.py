@@ -131,7 +131,7 @@ def main(config):
     savetime = time.strftime(
         '%Y-%m-%d-%H%%%M', time.localtime()).replace('-', '_')
     print(f"Training completed, saving model")
-    U.save_model(model, savetime)
+    U.save_model(config["model_output_dir"], model, savetime)
 
 
 
