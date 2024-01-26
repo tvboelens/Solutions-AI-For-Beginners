@@ -1,5 +1,7 @@
 import os
 import shutil
+from statistics import mean
+from time import sleep
 from typing import Callable, Optional
 import zipfile
 
@@ -10,6 +12,7 @@ from torch.utils.data import Dataset, random_split
 from torchvision import tv_tensors
 from torchvision.utils import save_image
 from torchvision.transforms import v2 as T
+from tqdm import tqdm
 
 
 
@@ -132,6 +135,85 @@ class UNet(nn.Module):
         d3 = self.sigmoid(self.dec_conv3(
             torch.cat((self.upsample3(d2), cat0), dim=1)))
         return d3
+    
+
+def train_epoch(epoch, model, dataloader, optimizer, loss_fn, report_freq, device):
+    epoch_loss = []
+    running_loss = 0.0
+    i = 0
+    with tqdm(dataloader, unit='batch') as dl_bar:
+        dl_bar.set_description(f"Training for epoch {epoch+1}...")
+        for images, targets, _ in dl_bar:
+            images.to(device)
+            targets.to(device)
+            optimizer.zero_grad(set_to_none=True)
+            pred = model(images)
+            batch_loss = loss_fn(pred, targets)
+            batch_loss.backward()
+            optimizer.step()
+            epoch_loss.append(batch_loss.item())
+            running_loss += batch_loss.item()
+            if (i+1) == report_freq:
+                dl_bar.set_postfix(loss=running_loss/report_freq)
+                sleep(0.1)
+                running_loss = 0.0
+                i = 0
+            else:
+                i += 1
+    return epoch_loss
+
+
+def train_model(model, train_loader, val_loader, optimizer, no_of_epochs, report_freq,
+                device='cpu', loss_fn=nn.BCEWithLogitsLoss):
+    train_loss = []
+    val_loss = []
+    for epoch in range(no_of_epochs):
+        model.train(True)
+        epoch_loss = train_epoch(
+            epoch, model, train_loader, optimizer, loss_fn, report_freq, device)
+
+        running_vloss = 0.0
+        model.eval()
+        with torch.no_grad():
+            with tqdm(val_loader) as dl_bar:
+                dl_bar.set_description(f"Epoch {epoch+1}: validating model...")
+                running_vloss = []
+                for vimages, vtargets, _ in dl_bar:
+                    vimages.to(device)
+                    vtargets.to(device)
+                    pred = model(vimages)
+                    vloss = loss_fn(pred, vtargets)
+                    running_vloss.append(vloss.item())
+                    dl_bar.set_postfix(loss=mean(running_vloss))
+
+        val_loss.append(mean(running_vloss))
+        train_loss.extend(epoch_loss)
+
+    return train_loss, val_loss
+
+
+def test_model(model, test_loader, output_folder, save_freq=100, device='cpu'):
+    test_loss = []
+    model.eval()
+    with torch.no_grad():
+        i = 0
+        with tqdm(test_loader, unit='batch') as tl_bar:
+            tl_bar.set_description('Testing model...')
+            for img, target, img_filename in tl_bar:
+                img = img.to(device)
+                for t in target:
+                    for key in t:
+                        t[key] = t[key].to(device)
+                tloss_dict = model(img, target)
+                tloss = sum(loss for loss in tloss_dict.values())
+                test_loss.append(tloss.item())
+                tl_bar.set_postfix(loss=mean(test_loss))
+                sleep(0.1)
+                if (i+1) % save_freq == 0:
+                    draw_pred_segmentation_masks(
+                        img, model, output_folder, img_filename)
+                i += 1
+    return mean(test_loss)
 
 def save_model(model, output_dir, savetime):
     model_fn = 'BodySegmentation_model_'+savetime+'.pth'
@@ -170,10 +252,12 @@ def get_dataset(dataset_path, transforms, config):
                         os.path.join(dataset_path, dir))
         shutil.rmtree(os.path.join(dataset_path, dataset_path))
     full_dataset = MADSDataset(root=dataset_path, transforms=transforms)
-    train_set, val_set, test_set = random_split(#TODO: set a random seed
+    generator = torch.Generator().manual_seed(29)#set random seed for random_split
+    train_set, val_set, test_set = random_split(
         full_dataset, [config["train_size"], 
                        config["val_size"], 
-                       config["test_size"]])
+                       config["test_size"]],
+                       generator=generator)
     return train_set, val_set, test_set
 
 
