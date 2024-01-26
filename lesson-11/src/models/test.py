@@ -40,7 +40,7 @@ def test_model(model, test_loader, output_folder, save_freq=100, device='cpu'):
                 i+=1
     return mean(test_loss)
 
-def main(args, config):
+def main(config,args):
     #Load model and move to gpu if available
     model_fp = config["model_output_dir"] + args.modelname
     model = torch.load(model_fp)
@@ -62,8 +62,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Script to test a model')
     parser.add_argument("modelname", 
                         help="Filename of model you want to test")
+    parser.add_argument("-s",
+                        "--save_freq",
+                        type=int,
+                        help="Frequency of saving output images")
     args = parser.parse_args()
     config = load_config('config.yaml')
+    if args.save_freq is not None:
+        config["save_freq"]=args.save_freq
     main(config, args)
     
 
