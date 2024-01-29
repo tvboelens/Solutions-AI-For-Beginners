@@ -130,8 +130,9 @@ def main(config):
                                        no_of_epochs=no_of_epochs, report_freq=config["report_freq"], device=device)
     savetime = time.strftime(
         '%Y-%m-%d-%H%%%M', time.localtime()).replace('-', '_')
+    model_scripted = torch.jit.script(model)
     print(f"Training completed, saving model")
-    U.save_model(config["model_output_dir"], model, savetime)
+    U.save_model(config["model_output_dir"], model_scripted, savetime)
 
 
 

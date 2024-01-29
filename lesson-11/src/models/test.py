@@ -43,7 +43,7 @@ def test_model(model, test_loader, output_folder, save_freq=100, device='cpu'):
 def main(config,args):
     #Load model and move to gpu if available
     model_fp = config["model_output_dir"] + args.modelname
-    model = torch.load(model_fp)
+    model = torch.jit.load(model_fp)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     model.to(device)
 

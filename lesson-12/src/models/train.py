@@ -51,7 +51,8 @@ def main(config, args):
     print("TRAINING FINISHED")
 
     savetime = time.strftime('%Y-%m-%d-%H%%%M', time.localtime()).replace('-', '_')
-    U.save_model(model,config["model_output_dir"], savetime)
+    model_scripted = torch.jit.script(model)
+    U.save_model(model_scripted,config["model_output_dir"], savetime)
 
     if args.test:
         test_loss = U.test_model(

@@ -215,13 +215,13 @@ def test_model(model, test_loader, output_folder, save_freq=100, device='cpu'):
                 i += 1
     return mean(test_loss)
 
-def save_model(model, output_dir, savetime):
+def save_model(model_scripted, output_dir, savetime):
     model_fn = 'BodySegmentation_model_'+savetime+'.pth'
     if not os.path.exists(output_dir):
         os.makedir(output_dir)
 
     model_fp = os.path.join(output_dir, model_fn)
-    torch.save(model, model_fp)
+    model_scripted.save(model_fp)
 
 
 def draw_pred_segmentation_masks(model: Callable, img: torch.Tensor, img_name: str) -> None:

@@ -87,7 +87,7 @@ def save_model(output_dir, model, savetime):
         os.makedir(output_dir)
 
     model_fp = os.path.join(output_dir, model_fn)
-    torch.save(model, model_fp)
+    model.save(model_fp)
 
 #TODO: Adjust output folders + put savetime in
 def draw_pred_bounding_boxes(img, model, output_folder, img_name):
