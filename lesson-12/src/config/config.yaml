@@ -14,3 +14,4 @@ weight_decay: 0.000001
 no_of_epochs: 30
 momentum: None
 report_freq: 1
+save_freq: 1
