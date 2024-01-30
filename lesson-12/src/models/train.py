@@ -72,6 +72,7 @@ def main(config, args):
         os.mkdir(config["plot_output_dir"])
     fname = config["plot_output_dir"]+'train_val_loss_'+savetime+'.png'
     plt.savefig(fname)
+    plt.close()
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Script to train and optionally test a model')

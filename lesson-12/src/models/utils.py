@@ -11,8 +11,7 @@ import torch
 from torch import nn
 from torch.utils.data import Dataset, random_split
 from torchvision import tv_tensors
-from torchvision.utils import save_image
-from torchvision.transforms import ToPILImage, v2 as T
+from torchvision.transforms import v2 as T
 from tqdm import tqdm
 
 
@@ -37,7 +36,6 @@ class MADSDataset(Dataset):
         img_path = os.path.join(self.imgs_dir, img_fn)
         img = Image.open(img_path).convert('RGB')
         img = T.functional.pil_to_tensor(img)
-        # img = torchvision.io.read_image(img_path, ImageReadMode.RGB)
 
         mask_path = os.path.join(self.masks_dir, self.img_names[idx]+'.png')
         mask = Image.open(mask_path).convert('L')
@@ -45,7 +43,6 @@ class MADSDataset(Dataset):
         # Since we use binary cross entropy loss, values have to be in [0,1] and
         mask = mask/255.0
         # v2 transforms don't scale masks, therefore we have to do it by hand
-        # mask = torchvision.io.read_image(mask_path, ImageReadMode.GRAY)
         target = tv_tensors.Mask(mask)
 
         if self.transforms is not None:
@@ -227,7 +224,6 @@ def save_model(model_scripted, output_dir, savetime):
 
 def draw_pred_segmentation_masks(model: Callable, imgs: torch.Tensor, 
                                  img_names: tuple, config: dict) -> None:
-    # TODO: output both the predicted mask and the mask over the image
     imgs_path = os.path.join(config["data_dir"],'images')
     masks_path = os.path.join(config["data_dir"],'masks')
     model.eval()
@@ -245,7 +241,6 @@ def draw_pred_segmentation_masks(model: Callable, imgs: torch.Tensor,
         output_img = to_pil_transform(pred[i,:,:,:]).resize((512,384))
         img = Image.open(os.path.join(imgs_path,img_names[i] +'.png')).convert('RGB')
         mask = Image.open(os.path.join(masks_path, img_names[i] +'.png')).convert('L')
-        #save_image(pred[i,:,:,:], fp)
         fig, (ax1,ax2,ax3) = plt.subplots(1,3)
         ax1.set_title('Image')
         ax1.axis('off')
@@ -258,8 +253,6 @@ def draw_pred_segmentation_masks(model: Callable, imgs: torch.Tensor,
         ax3.imshow(output_img)
         plt.savefig(fp)
         plt.close()
-
-    # img.save(fp)
     return None
 
 def get_dataset(dataset_path, transforms, config):
@@ -271,7 +264,9 @@ def get_dataset(dataset_path, transforms, config):
                         os.path.join(dataset_path, dir))
         shutil.rmtree(os.path.join(dataset_path, dataset_path))
     full_dataset = MADSDataset(root=dataset_path, transforms=transforms)
-    generator = torch.Generator().manual_seed(29)#set random seed for random_split
+    #set random seed for random_split, since we potentially call it twice 
+    #(once for training and once for testing)
+    generator = torch.Generator().manual_seed(29)
     train_set, val_set, test_set = random_split(
         full_dataset, [config["train_size"], 
                        config["val_size"], 
