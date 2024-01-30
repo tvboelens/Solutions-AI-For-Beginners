@@ -43,8 +43,8 @@ def main(config, args):
         test_set, batch_size=config["bs_test"], shuffle=True)
     loss_fn = nn.BCEWithLogitsLoss()
 
-    test_loss = U.test_model(model, test_loader, config["image_output_dir"],
-                             loss_fn, config["save_freq"],device)
+    test_loss = U.test_model(model, test_loader, config,
+                             loss_fn, device)
     print(f"Average loss on test set is {test_loss}")
 
 

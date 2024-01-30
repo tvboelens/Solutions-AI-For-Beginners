@@ -1,3 +1,4 @@
+from matplotlib import pyplot as plt
 import os
 import shutil
 from statistics import mean
@@ -11,7 +12,7 @@ from torch import nn
 from torch.utils.data import Dataset, random_split
 from torchvision import tv_tensors
 from torchvision.utils import save_image
-from torchvision.transforms import v2 as T
+from torchvision.transforms import ToPILImage, v2 as T
 from tqdm import tqdm
 
 
@@ -192,7 +193,7 @@ def train_model(model, train_loader, val_loader, optimizer, no_of_epochs, report
     return train_loss, val_loss
 
 
-def test_model(model, test_loader, output_folder, loss_fn, save_freq=100, device='cpu'):
+def test_model(model, test_loader, config, loss_fn, device='cpu'):
     test_loss = []
     model.eval()
     with torch.no_grad():
@@ -207,9 +208,9 @@ def test_model(model, test_loader, output_folder, loss_fn, save_freq=100, device
                 test_loss.append(tloss.item())
                 tl_bar.set_postfix(loss=mean(test_loss))
                 sleep(0.1)
-                if (i+1) == save_freq:
+                if (i+1) == config["save_freq"]:
                     draw_pred_segmentation_masks(
-                        model, img, img_filenames, output_folder)
+                        model, img, img_filenames, config)
                     i=0
                 else:
                     i += 1
@@ -224,24 +225,39 @@ def save_model(model_scripted, output_dir, savetime):
     model_scripted.save(model_fp)
 
 
-def draw_pred_segmentation_masks(model: Callable, imgs: torch.Tensor, img_names: tuple, img_output_dir: str) -> None:
+def draw_pred_segmentation_masks(model: Callable, imgs: torch.Tensor, 
+                                 img_names: tuple, config: dict) -> None:
     # TODO: output both the predicted mask and the mask over the image
-    #print(img.shape)
+    imgs_path = os.path.join(config["data_dir"],'images')
+    masks_path = os.path.join(config["data_dir"],'masks')
     model.eval()
     pred = model(imgs)
-    #imgs = imgs.reshape(imgs.size()[1:]).to(torch.uint8)
-
-    # pred = pred.reshape(pred.size()[2:]).bool()
     pred[pred > 0.5] = 255.0
     pred[pred <= 0.5] = 0.0
-    # img = torchvision.utils.draw_segmentation_masks(img, pred)
-    # img = torchvision.transforms.ToPILImage()(img)
-    if not os.path.exists(img_output_dir):
-        os.mkdir(img_output_dir)
+
+    if not os.path.exists(config["image_output_dir"]):
+        os.mkdir(config["image_output_dir"])
+
     for i in range(len(img_names)):
         fn = img_names[i]+'_pred.png'
-        fp = os.path.join(img_output_dir, fn)
-        save_image(pred[i,:,:,:], fp)
+        fp = os.path.join(config["image_output_dir"], fn)
+        to_pil_transform = T.ToPILImage()
+        output_img = to_pil_transform(pred[i,:,:,:]).resize((512,384))
+        img = Image.open(os.path.join(imgs_path,img_names[i] +'.png')).convert('RGB')
+        mask = Image.open(os.path.join(masks_path, img_names[i] +'.png')).convert('L')
+        #save_image(pred[i,:,:,:], fp)
+        fig, (ax1,ax2,ax3) = plt.subplots(1,3)
+        ax1.set_title('Image')
+        ax1.axis('off')
+        ax1.imshow(img)
+        ax2.set_title('Original mask')
+        ax2.axis('off')
+        ax2.imshow(mask)
+        ax3.set_title('Predicted mask')
+        ax3.axis('off')
+        ax3.imshow(output_img)
+        plt.savefig(fp)
+        plt.close()
 
     # img.save(fp)
     return None
