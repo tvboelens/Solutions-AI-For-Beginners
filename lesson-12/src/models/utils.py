@@ -192,27 +192,27 @@ def train_model(model, train_loader, val_loader, optimizer, no_of_epochs, report
     return train_loss, val_loss
 
 
-def test_model(model, test_loader, output_folder, save_freq=100, device='cpu'):
+def test_model(model, test_loader, output_folder, loss_fn, save_freq=100, device='cpu'):
     test_loss = []
     model.eval()
     with torch.no_grad():
         i = 0
         with tqdm(test_loader, unit='batch') as tl_bar:
             tl_bar.set_description('Testing model...')
-            for img, target, img_filename in tl_bar:
-                img = img.to(device)
-                for t in target:
-                    for key in t:
-                        t[key] = t[key].to(device)
-                tloss_dict = model(img, target)
-                tloss = sum(loss for loss in tloss_dict.values())
+            for img, target, img_filenames in tl_bar:
+                img.to(device)
+                target.to(device)
+                pred = model(img)
+                tloss = loss_fn(pred, target)
                 test_loss.append(tloss.item())
                 tl_bar.set_postfix(loss=mean(test_loss))
                 sleep(0.1)
-                if (i+1) % save_freq == 0:
+                if (i+1) == save_freq:
                     draw_pred_segmentation_masks(
-                        img, model, output_folder, img_filename)
-                i += 1
+                        model, img, img_filenames, output_folder)
+                    i=0
+                else:
+                    i += 1
     return mean(test_loss)
 
 def save_model(model_scripted, output_dir, savetime):
@@ -224,23 +224,26 @@ def save_model(model_scripted, output_dir, savetime):
     model_scripted.save(model_fp)
 
 
-def draw_pred_segmentation_masks(model: Callable, img: torch.Tensor, img_name: str) -> None:
+def draw_pred_segmentation_masks(model: Callable, imgs: torch.Tensor, img_names: tuple, img_output_dir: str) -> None:
     # TODO: output both the predicted mask and the mask over the image
+    #print(img.shape)
     model.eval()
-    pred = model(img)
-    img = img.reshape(img.size()[1:]).to(torch.uint8)
+    pred = model(imgs)
+    #imgs = imgs.reshape(imgs.size()[1:]).to(torch.uint8)
 
     # pred = pred.reshape(pred.size()[2:]).bool()
     pred[pred > 0.5] = 255.0
     pred[pred <= 0.5] = 0.0
     # img = torchvision.utils.draw_segmentation_masks(img, pred)
     # img = torchvision.transforms.ToPILImage()(img)
-    fn = img_name+'_pred.png'
-    fp = os.path.join('output_imgs', fn)
-    if not os.path.exists('output_imgs'):
-        os.mkdir('output_imgs')
+    if not os.path.exists(img_output_dir):
+        os.mkdir(img_output_dir)
+    for i in range(len(img_names)):
+        fn = img_names[i]+'_pred.png'
+        fp = os.path.join(img_output_dir, fn)
+        save_image(pred[i,:,:,:], fp)
+
     # img.save(fp)
-    save_image(pred, fp)
     return None
 
 def get_dataset(dataset_path, transforms, config):

@@ -3,6 +3,7 @@ import os
 import yaml
 
 import torch
+from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import tv_tensors
 from torchvision.transforms import v2 as T
@@ -40,8 +41,10 @@ def main(config, args):
         dataset_path=root, transforms=transforms, config=config)
     test_loader = DataLoader(
         test_set, batch_size=config["bs_test"], shuffle=True)
+    loss_fn = nn.BCEWithLogitsLoss()
+
     test_loss = U.test_model(model, test_loader, config["image_output_dir"],
-                             config["save_freq"],device)
+                             loss_fn, config["save_freq"],device)
     print(f"Average loss on test set is {test_loss}")
 
 
