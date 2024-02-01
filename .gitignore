@@ -1,0 +1,53 @@
+#Virtual environments
+.venv/
+
+# Visual Studio Code cache/options directory
+.vscode/
+
+#Data folders
+lesson-11/data/
+lesson-12/segmentation_full_body_mads_dataset_1192_img/
+lesson-15/data/
+
+
+#Output folders
+lesson-11/output/
+lesson-12/output
+
+#Data files
+*.zip
+*.rar
+*.csv
+
+# Python Tools for Visual Studio (PTVS)
+__pycache__/
+*.pyc
+
+# Files built by Visual Studio
+*_i.c
+*_p.c
+*_h.h
+*.ilk
+*.meta
+*.obj
+*.iobj
+*.pch
+*.pdb
+*.ipdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*_wpftmp.csproj
+*.log
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
