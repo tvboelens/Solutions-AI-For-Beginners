@@ -35,6 +35,7 @@ if __name__ == '__main__':
             shutil.move(os.path.join(dataset_path, dataset_path, dir),
                     os.path.join(dataset_path, dir))
         shutil.rmtree(os.path.join(dataset_path, dataset_path))
+        os.rename(dataset_path, 'data')
         print("Dataset created.")
             
 

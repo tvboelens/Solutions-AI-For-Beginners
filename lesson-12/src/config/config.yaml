@@ -1,4 +1,4 @@
-data_dir: segmentation_full_body_mads_dataset_1192_img/
+data_dir: data/
 model_output_dir: output/models/
 image_output_dir: output/images/
 plot_output_dir: output/plots/
