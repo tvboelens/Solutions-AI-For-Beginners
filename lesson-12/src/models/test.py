@@ -15,13 +15,13 @@ import utils as U
 CONFIG_PATH = 'src/config/'
 
 
-def load_config(config_name):
+def load_config(config_name: str) -> dict:
     with open(os.path.join(CONFIG_PATH, config_name)) as file:
         config = yaml.safe_load(file)
     return config
 
 
-def main(config, args):
+def main(config: dict, args: argparse.Namespace) -> None:
     # Load model and move to gpu if available
     model_fp = config["model_output_dir"] + args.modelname
     if args.bucket_name is not None:

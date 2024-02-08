@@ -17,12 +17,12 @@ CONFIG_PATH = 'src/config/'
 
 
 
-def load_config(config_name):
+def load_config(config_name: str) -> dict:
     with open(os.path.join(CONFIG_PATH, config_name)) as file:
         config = yaml.safe_load(file)
     return config
 
-def main(config, args):
+def main(config: dict, args: argparse. Namespace) -> None:
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     model = U.UNet()
     model.to(device)
