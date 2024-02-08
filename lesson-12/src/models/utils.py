@@ -4,7 +4,7 @@ import os
 import shutil
 from statistics import mean
 from time import sleep
-from typing import Callable, Optional
+from typing import Callable, Iterable, Optional
 import zipfile
 
 from google.cloud import storage
@@ -137,7 +137,9 @@ class UNet(nn.Module):
         return d3
     
 
-def train_epoch(epoch, model, dataloader, optimizer, loss_fn, report_freq, device):
+def train_epoch(epoch: str, model: Callable, dataloader: Iterable, 
+                optimizer: torch.optim, loss_fn: Callable, report_freq: int, 
+                device: str = 'cpu') -> list:
     epoch_loss = []
     running_loss = 0.0
     i = 0
@@ -163,8 +165,10 @@ def train_epoch(epoch, model, dataloader, optimizer, loss_fn, report_freq, devic
     return epoch_loss
 
 
-def train_model(model, train_loader, val_loader, optimizer, no_of_epochs, report_freq,
-                device='cpu', loss_fn=nn.BCEWithLogitsLoss):
+def train_model(model: Callable, train_loader: Iterable, 
+                val_loader: Iterable, optimizer: torch.optim, no_of_epochs: int, 
+                report_freq: int,
+                device='cpu', loss_fn=nn.BCEWithLogitsLoss) -> tuple[list]:
     train_loss = []
     val_loss = []
     for epoch in range(no_of_epochs):
@@ -192,7 +196,9 @@ def train_model(model, train_loader, val_loader, optimizer, no_of_epochs, report
     return train_loss, val_loss
 
 
-def test_model(model, test_loader, config, loss_fn, device='cpu', bucket_name=None):
+def test_model(model: Callable, test_loader: Iterable, config: dict, 
+               loss_fn: Callable, device: str = 'cpu', 
+               bucket_name: Optional[str]=None) -> float:
     test_loss = []
     model.eval()
     with torch.no_grad():
@@ -209,13 +215,26 @@ def test_model(model, test_loader, config, loss_fn, device='cpu', bucket_name=No
                 sleep(0.1)
                 if (i+1) == config["save_freq"]:
                     draw_pred_segmentation_masks(
-                        model, img, img_filenames, config, bucket_name)
+                        model, img, img_filenames, config)
                     i=0
                 else:
                     i += 1
+        if bucket_name is not None:
+            pred_fnames = [fn for fn in os.listdir(config["image_output_dir"])
+                           if os.path.isfile(os.path.join(config["image_output_dir"],fn))]
+            storage_client = storage.Client()
+            bucket = storage_client.get_bucket(bucket_name)
+            with tqdm(pred_fnames, unit = 'img') as ul_bar:
+                ul_bar.set_description('Uploading images to GCS...')
+                for fn in ul_bar:
+                    fp = os.path.join(config["image_output_dir"],fn)
+                    destination_fp = 'output/images/'+fn
+                    blob = bucket.blob(destination_fp)
+                    blob.upload_from_filename(fp)
     return mean(test_loss)
 
-def save_model(model_scripted, output_dir, savetime, bucket_name=None):
+def save_model(model_scripted: Callable, output_dir: str, savetime: str, 
+               bucket_name: Optional[str] = None) -> None:
     model_fn = 'BodySegmentation_model_'+savetime+'.pth'
 
     Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -232,7 +251,7 @@ def save_model(model_scripted, output_dir, savetime, bucket_name=None):
 
 
 def draw_pred_segmentation_masks(model: Callable, imgs: torch.Tensor, 
-                                 img_names: tuple, config: dict, bucket_name=None) -> None:
+                                 img_names: tuple, config: dict) -> None:
     imgs_path = os.path.join(config["data_dir"],'images')
     masks_path = os.path.join(config["data_dir"],'masks')
     model.eval()
@@ -241,9 +260,9 @@ def draw_pred_segmentation_masks(model: Callable, imgs: torch.Tensor,
     pred[pred <= 0.5] = 0.0
 
     Path(config["image_output_dir"]).mkdir(parents=True, exist_ok=True)
-
+    pred_fnames = [fn+'_pred.png' for fn in img_names]
     for i in range(len(img_names)):
-        fn = img_names[i]+'_pred.png'
+        fn = pred_fnames[i]
         fp = os.path.join(config["image_output_dir"], fn)
         to_pil_transform = T.ToPILImage()
         output_img = to_pil_transform(pred[i,:,:,:]).resize((512,384))
@@ -261,15 +280,9 @@ def draw_pred_segmentation_masks(model: Callable, imgs: torch.Tensor,
         ax3.imshow(output_img)
         plt.savefig(fp)
         plt.close()
-        if bucket_name is not None:#Doing this in the loop is slow, rewrite to upload whole folder
-            destination_fp = 'output/images/'+fn
-            storage_client = storage.Client()
-            bucket = storage_client.get_bucket(bucket_name)
-            blob = bucket.blob(destination_fp)
-            blob.upload_from_filename(fp)
-    return None
 
-def get_dataset(dataset_path, transforms, config):
+def get_dataset(dataset_path: str, transforms: Callable, 
+                config: dict) -> tuple[Dataset]:
     if not os.path.exists(dataset_path):
         with zipfile.ZipFile('mads_ds_1192.zip') as file:
             file.extractall()
@@ -289,7 +302,7 @@ def get_dataset(dataset_path, transforms, config):
     return train_set, val_set, test_set
 
 def plot_loss(train_loss: list, val_loss: list, 
-              config: dict, savetime:str, bucket_name=None):
+              config: dict, savetime:str, bucket_name=None) -> None:
     fig, (ax1, ax2) = plt.subplots(2, 1)
     ax1.plot(train_loss)
     ax1.set_ylabel("Loss")
