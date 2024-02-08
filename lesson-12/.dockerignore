@@ -1,0 +1,6 @@
+*.md
+*.git
+.venv/
+*.csv
+*.ipynb
+segmentation_full_body_mads_dataset_1192_img/
