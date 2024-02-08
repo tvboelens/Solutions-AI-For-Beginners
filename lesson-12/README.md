@@ -11,7 +11,7 @@ The assigment uses a subset of [the MADS full body dataset](https://www.kaggle.c
 Run `src/models/train.py` to train the model. 
 Use the optional flag `-t` or  `--test` to immediately test the model after training. 
 Hyperparameters and other settings can be adjusted in `src/config/config.yaml`.
-If you want to test a previously trained model, run `src/models/test.py modelname`, where `modelname` is the filename of the saved model (just the filename, not the path, which should be set in the config file).
+If you want to test a previously trained model, run `src/models/test.py MODELNAME`, where `MODELNAME` is the filename of the saved model (just the filename, not the path, which should be set in the config file).
 
 # Training and testing the model on GCP in a Docker container
 1. To train the model run the Docker container with the argument
