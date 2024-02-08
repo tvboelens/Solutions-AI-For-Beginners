@@ -5,14 +5,11 @@
 .vscode/
 
 #Data folders
-lesson-11/data/
-lesson-12/segmentation_full_body_mads_dataset_1192_img/
-lesson-15/data/
-
+*/data/
 
 #Output folders
-lesson-11/output/
-lesson-12/output
+*/output/
+
 
 #Data files
 *.zip
