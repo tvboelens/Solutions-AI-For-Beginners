@@ -12,7 +12,7 @@ dataset_path = 'segmentation_full_body_mads_dataset_1192_img'
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-b', '--gcp_bucket',
+    parser.add_argument('-b', '--bucket_name',
                     action='store',
                     help='Provide bucket name\
                           to fetch dataset from \
@@ -20,11 +20,11 @@ if __name__ == '__main__':
                     type=str)
     args = parser.parse_args()
     if not os.path.exists(dataset_path):
-        if args.gcp_bucket is not None:
+        if args.bucket_name is not None:
             print("Fetching data from Google Cloud Storage...")
             storage_client = storage.Client()
             bucket = storage_client.bucket(
-                args.gcp_bucket)
+                args.bucket_name)
             blob = bucket.blob('mads_ds_1192.zip')
             blob.download_to_filename('mads_ds_1192.zip')
         
