@@ -1,7 +1,9 @@
 import argparse
+from pathlib import Path
 import os
 import yaml
 
+from google.cloud import storage
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -22,6 +24,21 @@ def load_config(config_name):
 def main(config, args):
     # Load model and move to gpu if available
     model_fp = config["model_output_dir"] + args.modelname
+    if args.bucket_name is not None:
+        print("Fetching model from Google Cloud Storage...")
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(
+                args.bucket_name)
+        source_fn = 'output/models/'+args.modelname
+        blob = bucket.blob(source_fn)
+        # If model is stored in GCS, then config["model_output_dir"] might not exist
+        try:
+            blob.download_to_filename(model_fp)
+        except FileNotFoundError:
+            Path(config["model_output_dir"]).mkdir(parents=True)
+            blob.download_to_filename(model_fp)
+        print("Model download complete")
+
     model = torch.jit.load(model_fp)
     device = torch.device(
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -44,7 +61,7 @@ def main(config, args):
     loss_fn = nn.BCEWithLogitsLoss()
 
     test_loss = U.test_model(model, test_loader, config,
-                             loss_fn, device)
+                             loss_fn, device, args.bucket_name)
     print(f"Average loss on test set is {test_loss}")
 
 
@@ -56,6 +73,9 @@ if __name__ == '__main__':
                         "--save_freq",
                         type=int,
                         help="Frequency of saving output images")
+    parser.add_argument("-b", "--bucket_name",
+                        help="Load model Google Cloud Storage bucket and store output there",
+                        action='store')
     args = parser.parse_args()
     config = load_config('config.yaml')
     if args.save_freq is not None:

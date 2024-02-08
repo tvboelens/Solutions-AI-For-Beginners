@@ -52,33 +52,24 @@ def main(config, args):
 
     savetime = time.strftime('%Y-%m-%d-%H%%%M', time.localtime()).replace('-', '_')
     model_scripted = torch.jit.script(model)
-    U.save_model(model_scripted,config["model_output_dir"], savetime)
+    U.save_model(model_scripted,config["model_output_dir"], savetime, args.bucket_name)
 
     if args.test:
         test_loss = U.test_model(
-            model, test_loader, config["plot_output_dir"], config["save_freq"], device)
+            model, test_loader, config, 
+            loss_fn, device, args.bucket_name)
         print(f"Average loss on test set is {test_loss}")
 
-    fig, (ax1, ax2) = plt.subplots(2, 1)
-    ax1.plot(train_loss)
-    ax1.set_ylabel("Loss")
-    ax1.set_title("Train Loss")
-
-    ax2.plot(val_loss)
-    ax2.set_ylabel("Loss")
-    ax2.set_title("Validation Loss")
-
-    if not os.path.exists(config["plot_output_dir"]):
-        os.mkdir(config["plot_output_dir"])
-    fname = config["plot_output_dir"]+'train_val_loss_'+savetime+'.png'
-    plt.savefig(fname)
-    plt.close()
+    U.plot_loss(train_loss, val_loss, config, savetime,args.bucket_name)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Script to train and optionally test a model')
     parser.add_argument("-t","--test", 
                         help="test model after training",
                         action='store_true')
+    parser.add_argument("-b","--bucket_name",
+                        help="Store output in Google Cloud Storage bucket",
+                        action='store')
     args = parser.parse_args()
     config = load_config('config.yaml')
     main(config, args)

@@ -1,4 +1,5 @@
 from matplotlib import pyplot as plt
+from pathlib import Path
 import os
 import shutil
 from statistics import mean
@@ -6,6 +7,7 @@ from time import sleep
 from typing import Callable, Optional
 import zipfile
 
+from google.cloud import storage
 from PIL import Image
 import torch
 from torch import nn
@@ -173,7 +175,7 @@ def train_model(model, train_loader, val_loader, optimizer, no_of_epochs, report
         running_vloss = 0.0
         model.eval()
         with torch.no_grad():
-            with tqdm(val_loader) as dl_bar:
+            with tqdm(val_loader, unit='batch') as dl_bar:
                 dl_bar.set_description(f"Epoch {epoch+1}: validating model...")
                 running_vloss = []
                 for vimages, vtargets, _ in dl_bar:
@@ -190,7 +192,7 @@ def train_model(model, train_loader, val_loader, optimizer, no_of_epochs, report
     return train_loss, val_loss
 
 
-def test_model(model, test_loader, config, loss_fn, device='cpu'):
+def test_model(model, test_loader, config, loss_fn, device='cpu', bucket_name=None):
     test_loss = []
     model.eval()
     with torch.no_grad():
@@ -207,23 +209,30 @@ def test_model(model, test_loader, config, loss_fn, device='cpu'):
                 sleep(0.1)
                 if (i+1) == config["save_freq"]:
                     draw_pred_segmentation_masks(
-                        model, img, img_filenames, config)
+                        model, img, img_filenames, config, bucket_name)
                     i=0
                 else:
                     i += 1
     return mean(test_loss)
 
-def save_model(model_scripted, output_dir, savetime):
+def save_model(model_scripted, output_dir, savetime, bucket_name=None):
     model_fn = 'BodySegmentation_model_'+savetime+'.pth'
-    if not os.path.exists(output_dir):
-        os.makedir(output_dir)
+
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     model_fp = os.path.join(output_dir, model_fn)
     model_scripted.save(model_fp)
 
+    if bucket_name is not None:
+        storage_client = storage.Client()
+        bucket = storage_client.get_bucket(bucket_name)
+        destination_fn = 'output/models/'+model_fn
+        blob = bucket.blob(destination_fn)
+        blob.upload_from_filename(model_fp)
+
 
 def draw_pred_segmentation_masks(model: Callable, imgs: torch.Tensor, 
-                                 img_names: tuple, config: dict) -> None:
+                                 img_names: tuple, config: dict, bucket_name=None) -> None:
     imgs_path = os.path.join(config["data_dir"],'images')
     masks_path = os.path.join(config["data_dir"],'masks')
     model.eval()
@@ -231,8 +240,7 @@ def draw_pred_segmentation_masks(model: Callable, imgs: torch.Tensor,
     pred[pred > 0.5] = 255.0
     pred[pred <= 0.5] = 0.0
 
-    if not os.path.exists(config["image_output_dir"]):
-        os.mkdir(config["image_output_dir"])
+    Path(config["image_output_dir"]).mkdir(parents=True, exist_ok=True)
 
     for i in range(len(img_names)):
         fn = img_names[i]+'_pred.png'
@@ -253,6 +261,12 @@ def draw_pred_segmentation_masks(model: Callable, imgs: torch.Tensor,
         ax3.imshow(output_img)
         plt.savefig(fp)
         plt.close()
+        if bucket_name is not None:#Doing this in the loop is slow, rewrite to upload whole folder
+            destination_fp = 'output/images/'+fn
+            storage_client = storage.Client()
+            bucket = storage_client.get_bucket(bucket_name)
+            blob = bucket.blob(destination_fp)
+            blob.upload_from_filename(fp)
     return None
 
 def get_dataset(dataset_path, transforms, config):
@@ -274,6 +288,27 @@ def get_dataset(dataset_path, transforms, config):
                        generator=generator)
     return train_set, val_set, test_set
 
+def plot_loss(train_loss: list, val_loss: list, 
+              config: dict, savetime:str, bucket_name=None):
+    fig, (ax1, ax2) = plt.subplots(2, 1)
+    ax1.plot(train_loss)
+    ax1.set_ylabel("Loss")
+    ax1.set_title("Train Loss")
 
+    ax2.plot(val_loss)
+    ax2.set_ylabel("Loss")
+    ax2.set_title("Validation Loss")
+
+    Path(config["plot_output_dir"]).mkdir(parents=True, exist_ok=True)
+    fname = config["plot_output_dir"]+'train_val_loss_'+savetime+'.png'
+    plt.savefig(fname)
+    plt.close()
+
+    if bucket_name is not None:
+        destination_fp = 'output/images/train_val_loss_'+savetime+'.png'
+        storage_client = storage.Client()
+        bucket = storage_client.get_bucket(bucket_name)
+        blob = bucket.blob(destination_fp)
+        blob.upload_from_filename(fname)        
 
 
