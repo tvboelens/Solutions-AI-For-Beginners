@@ -1,3 +1,4 @@
+import argparse
 import os
 #from statistics import mean
 import time
@@ -95,7 +96,7 @@ def train_model(
 
     return train_loss, val_loss
 
-def main(config):
+def main(config, args):
     transforms = T.Compose([T.Resize((255, 255), antialias=None),
                              T.ToImage(),
                              T.ToDtype(dtype={
@@ -132,30 +133,32 @@ def main(config):
         '%Y-%m-%d-%H%%%M', time.localtime()).replace('-', '_')
     model_scripted = torch.jit.script(model)
     print(f"Training completed, saving model")
-    U.save_model(config["model_output_dir"], model_scripted, savetime)
-
-
-
-    fig, (ax1, ax2) = plt.subplots(2, 1)
-
-    ax1.plot(train_loss)
-    ax1.set_ylabel("Loss")
-    ax1.set_title("Train Loss")
-
-    ax2.plot(val_loss)
-    ax2.set_ylabel("Loss")
-    ax2.set_title("Validation Loss")
-    if not os.path.exists('output/plots/'):
-        os.mkdir('output/plots')
-    fname = 'output/plots/train_val_loss_'+savetime+'.png'
-    plt.savefig(fname)
-
-
-    
+    model_scripted = torch.jit.script(model)
+    U.save_model(config["model_output_dir"], model_scripted, savetime, args.bucket_name)
+    U.plot_loss(train_loss, val_loss, savetime, args.bucket_name)
+    if args.test:
+        test_set = U.HollywoodHeadDataset(
+            root='data', transforms=transforms, mode='test')
+        test_loader = DataLoader(
+            test_set, config["bs_test"])
+        test_loss = U.test_model(model, test_loader,
+                                 config, device,
+                                 args.bucket_name)
+        print(f"Average loss on test set is {test_loss}")
+   
 
 if __name__=='__main__':
+    parser = argparse.ArgumentParser(
+        description='Script to train and optionally test a model')
+    parser.add_argument("-t", "--test",
+                        help="test model after training",
+                        action='store_true')
+    parser.add_argument("-b", "--bucket_name",
+                        help="Store output in Google Cloud Storage bucket",
+                        action='store')
+    args = parser.parse_args()
     config = load_config('config.yaml')
-    main(config)
+    main(config, args)
     
 
     

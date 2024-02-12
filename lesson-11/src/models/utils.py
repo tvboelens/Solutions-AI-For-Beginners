@@ -1,5 +1,12 @@
+from xml.etree import ElementTree as et
+from statistics import mean
 import os
-import time
+from pathlib import Path
+from functools import partial
+from time import sleep
+from tqdm import tqdm
+
+from matplotlib import pyplot as plt
 import torch
 from torch.utils.data import Dataset
 from torchvision import tv_tensors
@@ -10,10 +17,9 @@ from torchvision.models.detection.retinanet import RetinaNet, RetinaNetHead
 from torchvision.models.detection.anchor_utils import AnchorGenerator
 from torchvision.models.detection import backbone_utils
 from torchvision.ops.feature_pyramid_network import LastLevelP6P7
-from functools import partial
 
-from xml.etree import ElementTree as et
-
+from google import storage
+import utils as U
 
 class HollywoodHeadDataset(Dataset):
     def __init__(self, root, transforms=None, mode='train') -> None:
@@ -81,16 +87,20 @@ class HollywoodHeadDataset(Dataset):
             img, target = self.transforms(img, target)
         return img, target, img_filename
 
-def save_model(output_dir, model, savetime):
+def save_model(output_dir, model, savetime, bucket_name:str=None):
     model_fn = 'HollywoodHeadDetection_model_'+savetime+'.pth'
-    if not os.path.exists(output_dir):
-        os.makedir(output_dir)
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     model_fp = os.path.join(output_dir, model_fn)
     model.save(model_fp)
+    if bucket_name is not None:
+        storage_client = storage.Client()
+        bucket = storage_client.get_bucket(bucket_name)
+        destination_fn = 'output/models/'+model_fn
+        blob = bucket.blob(destination_fn)
+        blob.upload_from_filename(model_fp)
 
-#TODO: Adjust output folders + put savetime in
-def draw_pred_bounding_boxes(img, model, output_folder, img_name):
+def draw_pred_bounding_boxes(img, model, output_folder, img_name, bucket_name=None):
     model.eval()
 
     # img = tv_tensors.Image(img)
@@ -170,4 +180,84 @@ def get_model(trainable_backbone_layers):
               num_classes=2,
               anchor_generator=anchor_generator,
               head=head)
+    return model
+
+def plot_loss(train_loss: list, val_loss: list,
+              savetime: str, bucket_name: str=None):
+    fig, (ax1, ax2) = plt.subplots(2, 1)
+
+    ax1.plot(train_loss)
+    ax1.set_ylabel("Loss")
+    ax1.set_title("Train Loss")
+
+    ax2.plot(val_loss)
+    ax2.set_ylabel("Loss")
+    ax2.set_title("Validation Loss")
+    fname = 'output/plots/train_val_loss_'+savetime+'.png'
+    try:
+        plt.savefig(fname)
+    except OSError:
+        Path('output/plots').mkdir(exist_ok=True)
+        plt.savefig(fname)
+    if bucket_name is not None:
+        storage_client = storage.Client()
+        bucket = storage_client.get_bucket(bucket_name)
+        destination_fn = 'output/plots/train_val_loss_'+savetime+'.png'
+        blob = bucket.blob(destination_fn)
+        blob.upload_from_filename(fname)
+
+
+def test_model(model, test_loader, config, device='cpu', bucket_name=None):
+    test_loss = []
+    model.eval()
+    with torch.no_grad():
+        i = 0
+        with tqdm(test_loader, unit='batch') as tl_bar:
+            tl_bar.set_description('Testing model...')
+            for img, target, img_filename in tl_bar:
+                img = img.to(device)
+                for t in target:
+                    for key in t:
+                        t[key] = t[key].to(device)
+                tloss_dict = model(img, target)
+                tloss = sum(loss for loss in tloss_dict.values())
+                test_loss.append(tloss.item())
+                tl_bar.set_postfix(loss=mean(test_loss))
+                sleep(0.1)
+                if (i+1) % config["save_freq"] == 0:
+                    U.draw_pred_bounding_boxes(
+                        img, model, config["image_output_dir"], img_filename)
+                i += 1
+    if bucket_name is not None:
+        pred_fnames = [fn for fn in os.listdir(config["image_output_dir"])
+                       if os.path.isfile(os.path.join(config["image_output_dir"], fn))]
+        storage_client = storage.Client()
+        bucket = storage_client.get_bucket(bucket_name)
+        with tqdm(pred_fnames, unit='img') as ul_bar:
+            ul_bar.set_description('Uploading images to GCS...')
+            for fn in ul_bar:
+                fp = os.path.join(config["image_output_dir"], fn)
+                destination_fp = 'output/images/'+fn
+                blob = bucket.blob(destination_fp)
+                blob.upload_from_filename(fp)
+    return mean(test_loss)
+
+def load_model(config, args):
+    model_fp = config["model_output_dir"] + args.modelname
+    if args.bucket_name is not None:
+        print("Fetching model from Google Cloud Storage...")
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(
+            args.bucket_name)
+        source_fn = 'output/models/'+args.modelname
+        blob = bucket.blob(source_fn)
+        # If model is stored in GCS, then config["model_output_dir"] might not exist
+        try:
+            blob.download_to_filename(model_fp)
+        except FileNotFoundError:
+            Path(config["model_output_dir"]).mkdir(parents=True)
+            blob.download_to_filename(model_fp)
+        print("Model download complete")
+    model = torch.jit.load(model_fp)
+
     return model
