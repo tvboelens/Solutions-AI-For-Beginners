@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 import os
 import shutil
 import zipfile
@@ -31,6 +32,8 @@ if __name__ == '__main__':
         print("Unzipping dataset...")    
         with zipfile.ZipFile('mads_ds_1192.zip') as file:
             file.extractall()
+        if args.bucket_name is not None:
+            Path('mads_ds_1192.zip').unlink(missing_ok=True)
         for dir in os.listdir(os.path.join(dataset_path, dataset_path)):
             shutil.move(os.path.join(dataset_path, dataset_path, dir),
                     os.path.join(dataset_path, dir))
