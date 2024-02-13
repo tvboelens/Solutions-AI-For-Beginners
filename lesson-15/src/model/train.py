@@ -1,4 +1,7 @@
+import argparse
 import os
+from pathlib import Path
+from matplotlib import pyplot as plt
 import time
 import yaml
 
@@ -7,6 +10,7 @@ from torch import nn, optim
 from torch.utils.data import random_split, DataLoader
 from tqdm import tqdm
 
+from google.cloud import storage
 import utils as U
 
 
@@ -94,15 +98,42 @@ def train_model(
     return train_loss, test_loss
 
 
-def save_model(model, savetime):
+def save_model(model, savetime, bucket_name: str=None)-> None:
     model_fn = 'word2vec_skip_gram_model_'+savetime+'.pth'
-    if not os.path.exists('output/models/'):
-        if not os.path.exists('output/'):
-            os.makedir('output')
-        os.makedir('output/models')
-
+    Path('output/models/').mkdir(parents=True, exist_ok=True)
     model_fp = 'output/models/'+model_fn
     torch.save(model, model_fp)
+    if bucket_name is not None:
+        storage_client = storage.Client()
+        bucket = storage_client.get_bucket(bucket_name)
+        destination_fn = 'output/models/'+model_fn
+        blob = bucket.blob(destination_fn)
+        blob.upload_from_filename(model_fp)
+
+
+def plot_loss(train_loss: list, val_loss: list,
+              savetime: str, bucket_name: str = None):
+    fig, (ax1, ax2) = plt.subplots(2, 1)
+
+    ax1.plot(train_loss)
+    ax1.set_ylabel("Loss")
+    ax1.set_title("Train Loss")
+
+    ax2.plot(val_loss)
+    ax2.set_ylabel("Loss")
+    ax2.set_title("Validation Loss")
+    fname = 'output/plots/train_val_loss_'+savetime+'.png'
+    try:
+        plt.savefig(fname)
+    except OSError:
+        Path('output/plots').mkdir(exist_ok=True)
+        plt.savefig(fname)
+    if bucket_name is not None:
+        storage_client = storage.Client()
+        bucket = storage_client.get_bucket(bucket_name)
+        destination_fn = 'output/plots/train_val_loss_'+savetime+'.png'
+        blob = bucket.blob(destination_fn)
+        blob.upload_from_filename(fname)
 
 
 
@@ -110,7 +141,7 @@ def save_model(model, savetime):
 
 
 
-def main(config):
+def main(config, args):
     #Build dataset and dataloaders
     text = open('data/shakespeare.txt', 'rb').read().decode(encoding='utf-8').replace('\n',' ')
     vocab = U.build_vocab(text)
@@ -141,15 +172,33 @@ def main(config):
     savetime = time.strftime(
         '%Y-%m-%d-%H%%%M', time.localtime()).replace('-', '_')
     print(f"Training completed, saving model...")
-    save_model(model, savetime)
+    plot_loss(
+        train_loss, test_loss, savetime, args.bucket_name)
+    model_scripted = torch.jit.script(embedder)
+    save_model(model_scripted, savetime, args.bucket_name)
 
 if __name__ == "__main__":
-    if not os.path.exists('data/shakespeare.txt'):
-        if not os.path.exists('data'):
-            os.mkdir('data')
+    parser = argparse.ArgumentParser(description="Script to train a skip-gram embedding model")
+    parser.add_argument("-b", "--bucket_name",
+                        help="Store output in Google Cloud Storage bucket",
+                        action='store')
+    args = parser.parse_args()
+    if args.bucket_name is not None:
+        print("Fetching data from Google Cloud Storage...")
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(
+            args.bucket_name)
+        blob = bucket.blob('shakespeare.txt')
+        try:
+            blob.download_to_filename('data/shakespeare.txt')
+        except FileNotFoundError:
+            Path('data').mkdir()
+            blob.download_to_filename('data/shakespeare.txt')
+    elif not os.path.exists('data/shakespeare.txt'):
+        Path('data').mkdir(exist_ok=True)
         os.system(
             'wget -O data/shakespeare.txt https://storage.googleapis.com/download.tensorflow.org/data/shakespeare.txt')
     config = load_config('config.yaml')
-    main(config)
+    main(config, args)
     
 
