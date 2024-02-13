@@ -3,7 +3,7 @@ from pathlib import Path
 import os
 import zipfile
 
-from google import storage
+from google.cloud import storage
 
 parser = argparse.ArgumentParser(description='Script to download Hollywood Heads Dataset and \
                                  unpack the zip file.')

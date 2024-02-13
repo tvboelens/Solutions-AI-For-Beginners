@@ -18,7 +18,7 @@ from torchvision.models.detection.anchor_utils import AnchorGenerator
 from torchvision.models.detection import backbone_utils
 from torchvision.ops.feature_pyramid_network import LastLevelP6P7
 
-from google import storage
+from google.cloud import storage
 import utils as U
 
 class HollywoodHeadDataset(Dataset):
