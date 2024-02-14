@@ -176,7 +176,6 @@ def train_model(model: Callable, train_loader: Iterable,
         epoch_loss = train_epoch(
             epoch, model, train_loader, optimizer, loss_fn, report_freq, device)
 
-        running_vloss = 0.0
         model.eval()
         with torch.no_grad():
             with tqdm(val_loader, unit='batch') as dl_bar:
