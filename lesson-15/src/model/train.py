@@ -1,4 +1,5 @@
 import argparse
+from statistics import mean
 import os
 from pathlib import Path
 from matplotlib import pyplot as plt
@@ -43,10 +44,6 @@ def train_epoch(
             if i == report_freq:
                 tepoch.set_postfix(loss=running_loss/report_freq)
                 time.sleep(0.1)
-                """ print(f"Batch {j+1} finished, "
-                    f"time = {int((time.time()-starttime)/60)} minutes {round((time.time()-starttime)%60,2)} seconds, "
-                    f"loss: {running_loss/report_freq}")
-                starttime = time.time() """
                 running_loss = 0.0
                 i=0
             else:
@@ -64,37 +61,28 @@ def train_model(
         model.train(True)
         epoch_loss = train_epoch(
             epoch, model, train_loader, optimizer, report_freq, device, loss_fn)
-        train_loss += epoch_loss
-
-        running_tloss = 0.0
+        train_loss.extend(epoch_loss)
         i=0
+        optimizer.zero_grad(set_to_none=True)
         model.eval()
-        """ print(f"Training for epoch {epoch+1} done, time = "
-              f"{int((time.time()-epoch_starttime)/60)} minutes {round((time.time()-epoch_starttime)%60,2)} seconds") """
         with torch.no_grad():
             with tqdm(test_loader, unit='batch') as tepoch:
+                running_tloss=[]
                 tepoch.set_description(f"Epoch {epoch+1}, validating model...")
                 for tfeatures, ttargets in tepoch:
                     tfeatures.to(device)
                     ttargets.to(device)
                     pred = model(tfeatures)
                     tloss = loss_fn(pred, ttargets)
-                    test_loss.append(tloss.item())
-                    running_tloss += tloss.item()
-                    tepoch.set_postfix(loss=running_tloss/(i+1))
-                    time.sleep(0.1)
-                    i+=1
-
-                # print(f"Completed validation for batch {i+1}, time = "
-                #      f"{int((time.time()-vbatch_starttime)/60)} minutes {round((time.time()-vbatch_starttime)%60,2)}"
-                #      f"seconds")
-
-        test_loss.append(running_tloss/(i+1))
-        train_loss += epoch_loss
-        """ print(f"Validation for epoch {epoch+1} done, time = "
-              f"{int((time.time()-epoch_starttime)/60)} minutes {round((time.time()-epoch_starttime)%60,2)} seconds, "
-              f"LOSS train {epoch_loss[-1]}, val: {test_loss[-1]}") """
-
+                    running_tloss.append(tloss.item())
+                    if i==report_freq:
+                        tepoch.set_postfix(loss=mean(running_tloss))
+                        time.sleep(0.1)
+                        i=0
+                    else:
+                        i+=1
+        test_loss.append(mean(running_tloss))
+        train_loss.extend(epoch_loss)
     return train_loss, test_loss
 
 
@@ -135,12 +123,6 @@ def plot_loss(train_loss: list, val_loss: list,
         blob = bucket.blob(destination_fn)
         blob.upload_from_filename(fname)
 
-
-
-
-
-
-
 def main(config, args):
     #Build dataset and dataloaders
     text = open('data/shakespeare.txt', 'rb').read().decode(encoding='utf-8').replace('\n',' ')
@@ -149,16 +131,17 @@ def main(config, args):
     ds = U.get_dataset(text, ds_len=config["ds_len"],vocab=vocab, window_size=config["window_size"])
     print(f"Splitting dataset and creating dataloaders...")
     train_set, test_set = random_split(
-        ds, [config["ds_split"], 1-config["ds_split"]])
-    train_loader = DataLoader(train_set, batch_size=config["bs"])
-    test_loader = DataLoader(test_set, batch_size=config["bs"])
+        ds, [config["ds_split"], 1.0-config["ds_split"]])
+    train_loader = DataLoader(train_set, batch_size=config["bs_train"])
+    test_loader = DataLoader(test_set, batch_size=config["bs_test"])
     
     #Define model, optimizers and loss function
     vocab_size = len(vocab)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     embedder = torch.nn.Embedding(num_embeddings=vocab_size, embedding_dim=config["embedding_dim"])
-    model = torch.nn.Sequential(embedder,
-    torch.nn.Linear(in_features=config["embedding_dim"], out_features=vocab_size))
+    model = torch.nn.Sequential(
+        embedder, torch.nn.Linear(
+            in_features=config["embedding_dim"], out_features=vocab_size))
     model.to(device)
     optimizer = optim.SGD(params=model.parameters(), lr=config["lr"])
     loss_fn = nn.CrossEntropyLoss()
