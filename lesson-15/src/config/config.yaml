@@ -4,7 +4,8 @@ vocab_size: 5000
 lines_cnt: 500
 window_size: 10
 ds_len: 10000
-bs: 512
+bs_train: 512
+bs_test: 64
 ds_split: 0.8
 embedding_dim: 30
 no_of_epochs: 50
