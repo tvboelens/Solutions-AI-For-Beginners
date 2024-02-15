@@ -114,7 +114,7 @@ def plot_loss(train_loss: list, val_loss: list,
     try:
         plt.savefig(fname)
     except FileNotFoundError:
-        Path('output/plots').mkdir(exist_ok=True)
+        Path('output/plots').mkdir(parents=True, exist_ok=True)
         plt.savefig(fname)
     if bucket_name is not None:
         storage_client = storage.Client()
