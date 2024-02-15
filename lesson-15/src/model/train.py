@@ -113,7 +113,7 @@ def plot_loss(train_loss: list, val_loss: list,
     fname = 'output/plots/train_val_loss_'+savetime+'.png'
     try:
         plt.savefig(fname)
-    except OSError:
+    except FileNotFoundError:
         Path('output/plots').mkdir(exist_ok=True)
         plt.savefig(fname)
     if bucket_name is not None:
