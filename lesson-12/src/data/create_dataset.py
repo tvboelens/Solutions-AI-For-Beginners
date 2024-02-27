@@ -20,7 +20,7 @@ if __name__ == '__main__':
                           Google Cloud Storage bucket',
                     type=str)
     args = parser.parse_args()
-    if not os.path.exists(dataset_path):
+    if not os.path.exists('data'):
         if args.bucket_name is not None:
             print("Fetching data from Google Cloud Storage...")
             storage_client = storage.Client()
