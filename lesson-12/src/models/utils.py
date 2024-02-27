@@ -232,14 +232,14 @@ def test_model(model: Callable, test_loader: Iterable, config: dict,
                     blob.upload_from_filename(fp)
     return mean(test_loss)
 
-def save_model(model_scripted: Callable, output_dir: str, savetime: str, 
+def save_model(model: nn.Module, output_dir: str, savetime: str, 
                bucket_name: Optional[str] = None) -> None:
     model_fn = 'BodySegmentation_model_'+savetime+'.pth'
 
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     model_fp = os.path.join(output_dir, model_fn)
-    model_scripted.save(model_fp)
+    torch.save(model.state_dict(),model_fp)
 
     if bucket_name is not None:
         storage_client = storage.Client()

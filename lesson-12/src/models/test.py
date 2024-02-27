@@ -39,7 +39,8 @@ def main(config: dict, args: argparse.Namespace) -> None:
             blob.download_to_filename(model_fp)
         print("Model download complete")
 
-    model = torch.jit.load(model_fp)
+    model = U.UNet()
+    model.load_state_dict(torch.load(model_fp))
     device = torch.device(
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
     model.to(device)
